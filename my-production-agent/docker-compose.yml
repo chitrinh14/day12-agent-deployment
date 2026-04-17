@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # 1. Load Balancer (Đứng mũi chịu sào)
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - agent
+
+  # 2. Core Agent (Đội ngũ công nhân viên)
+  agent:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - AGENT_API_KEY=sk-mock-key-12345
+    # Chờ Redis khỏe mạnh rồi mới khởi động Agent
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # 3. Redis (Trí nhớ toàn cục cho Stateless, Rate Limit, Cost Guard)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    # Kịch bản Health Check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
